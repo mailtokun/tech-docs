@@ -1,0 +1,37 @@
+1. 让 prometheus 监听所有IP来源的9090端口
+ "--web.listen-address=0.0.0.0:9090",
+2. 新建一个nodeport 暴露9090端口
+kubectl create -f - << EOF
+apiVersion: v1
+kind: Service
+metadata:
+  namespace: kube-system
+  name: monitoring-prometheus-nodeport
+  labels:
+    app: "monitoring-prometheus"
+spec:
+  type: NodePort
+  ports:
+    - port: 9090
+      targetPort: 9090
+      protocol: TCP
+      name: monitoring-prometheus-nodeport
+  selector:
+    app: "monitoring-prometheus"
+EOF
+3. 修改prometheus的配置加上federate
+- job_name: federate
+  honor_labels: true
+  params:
+    match[]:
+    - '{job="prometheus"}'
+    - '{__name__=~"job:.*"}'
+  scrape_interval: 15s
+  scrape_timeout: 10s
+  metrics_path: /prometheus/federate
+  scheme: http
+  static_configs:
+  - targets:
+    - x.xx.xxx.xxx:32595
+    labels:
+      cluster_name: your-cluster
